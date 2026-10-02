@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lendang Tampel Lauq Quiz</title>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DynaPuff:wght@400..700&family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        bubble: ['DynaPuff', 'cursive'],
+                    },
+                    colors: {
+                        brand: {
+                            400: '#38bdf8',
+                            500: '#0ea5e9',
+                            600: '#0284c7',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <style>
+        body {
+            background-color: #0f172a;
+            color: #f8fafc;
+            background-image: 
+                radial-gradient(at 0% 0%, hsla(253,16%,7%,1) 0, transparent 50%), 
+                radial-gradient(at 50% 0%, hsla(225,39%,30%,0.2) 0, transparent 50%), 
+                radial-gradient(at 100% 0%, hsla(339,49%,30%,0.2) 0, transparent 50%);
+            background-attachment: fixed;
+            min-height: 100vh;
+        }
+        .glass-card {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        // Kredensial Supabase
+        const SUPABASE_URL = 'https://rklpxilcmtnrdduocmpu.supabase.co';
+        const SUPABASE_KEY = 'sb_publishable_GJrrFT8jvULtRvd0e-EFjw_m8s-Amd5';
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        const { useState, useEffect } = React;
+
+        function App() {
+            const [session, setSession] = useState(null);
+            const [userRole, setUserRole] = useState(null);
+            const [loading, setLoading] = useState(true);
+            const [view, setView] = useState('home');
+            const [activeQuiz, setActiveQuiz] = useState(null);
+
+            useEffect(() => {
+                supabase.auth.getSession().then(({ data: { session } }) => {
+                    setSession(session);
+                    checkUserRole(session?.user);
+                });
+
+                supabase.auth.onAuthStateChange((_event, session) => {
+                    setSession(session);
+                    checkUserRole(session?.user);
+                });
+            }, []);
+
+            const checkUserRole = async (user) => {
+                if (!user) {
+                    setUserRole(null);
+                    setLoading(false);
+                    return;
+                }
+                if (user.email && !user.email.includes('@peserta.quiz')) {
+                    setUserRole('admin');
+                } else {
+                    setUserRole('peserta');
+                }
+                setLoading(false);
+            };
+
+            const logout = async () => {
+                await supabase.auth.signOut();
+                setView('home');
+            };
+
+            if (loading) return (
+                <div className="flex items-center justify-center min-h-screen">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-500"></div>
+                </div>
+            );
+
+            return (
+                <div className="min-h-screen flex flex-col">
+                    <header className="glass-card sticky top-0 z-50 px-4 py-4 mb-6">
+                        <div className="max-w-6xl mx-auto flex justify-between items-center">
+                            <div className="flex items-center gap-3 cursor-pointer" onClick={() => setView('home')}>
+                                <div className="bg-gradient-to-br from-brand-400 to-blue-600 w-10 h-10 rounded-xl flex items-center justify-center shadow-lg transform rotate-3">
+                                    <span className="text-white font-bold text-xl font-bubble">Q</span>
+                                </div>
+                                <div>
+                                    <h1 className="text-2xl md:text-3xl font-bubble text-transparent bg-clip-text bg-gradient-to-r from-brand-400 to-blue-300 drop-shadow-md tracking-wide">
+                                        Lendang Tampel Lauq
+                                    </h1>
+                                </div>
+                            </div>
+
+                            <div className="flex items-center gap-3">
+                                {session ? (
+                                    <>
+                                        <button onClick={logout} className="p-2 rounded-lg bg-red-500/20 text-red-400 hover:bg-red-500/40 transition text-sm font-bold">
+                                            Keluar
+                                        </button>
+                                    </>
+                                ) : (
+                                    <button onClick={() => setView('admin_login')} className="text-slate-500 hover:text-white transition text-sm">
+                                        ⚙️ Portal Admin
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+                    </header>
+
+                    <main className="flex-1 w-full max-w-6xl mx-auto px-4 pb-12">
+                        {!session && view === 'home' && <ParticipantLogin />}
+                        {!session && view === 'admin_login' && <AdminLogin setView={setView} />}
+                        {session && userRole === 'peserta' && view === 'home' && (
+                            <ParticipantHome setView={setView} setActiveQuiz={setActiveQuiz} />
+                        )}
+                        {session && userRole === 'peserta' && view === 'quiz_runner' && activeQuiz && (
+                            <QuizRunner quiz={activeQuiz} setView={setView} user={session.user} />
+                        )}
+                        {session && userRole === 'admin' && <AdminDashboard />}
+                    </main>
+                </div>
+            );
+        }
+
+        function ParticipantLogin() {
+            const [name, setName] = useState('');
+            const [phone, setPhone] = useState('');
+            const [loading, setLoading] = useState(false);
+            const [error, setError] = useState(null);
+
+            const handleLogin = async (e) => {
+                e.preventDefault();
+                setLoading(true);
+                setError(null);
+
+                const pseudoEmail = `${phone}@peserta.quiz`;
+                const pseudoPassword = `LTQ_${phone}_2026`;
+
+                try {
+                    let { data, error: signInError } = await supabase.auth.signInWithPassword({
+                        email: pseudoEmail,
+                        password: pseudoPassword
+                    });
+
+                    if (signInError && signInError.message.includes("Invalid login")) {
+                        const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+                            email: pseudoEmail,
+                            password: pseudoPassword,
+                            options: { data: { name: name, phone: phone } }
+                        });
+                        
+                        if (signUpError) throw signUpError;
+
+                        // Deteksi jika Supabase masih mewajibkan konfirmasi email
+                        if (signUpData?.user && !signUpData.session) {
+                            throw new Error("Sistem Supabase memblokir login. Minta Admin untuk masuk ke Dashboard Supabase -> Authentication -> Providers -> Email -> Matikan fitur 'Confirm email'.");
+                        }
+                    } else if (signInError) {
+                        throw signInError;
+                    }
+                } catch (err) {
+                    setError(err.message || 'Terjadi kesalahan saat masuk.');
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            return (
+                <div className="max-w-md mx-auto mt-12 glass-card p-8 rounded-3xl">
+                    <div className="text-center mb-8">
+                        <h2 className="text-3xl font-bubble text-white mb-2">Mulai Main!</h2>
+                        <p className="text-slate-400">Masukkan Nama dan Nomor HP untuk mengikuti kuis.</p>
+                    </div>
+                    
+                    {error && (
+                        <div className="bg-red-500/20 border border-red-500 text-red-200 p-4 rounded-xl mb-6 text-sm font-medium leading-relaxed">
+                            ⚠️ {error}
+                        </div>
+                    )}
+                    
+                    <form onSubmit={handleLogin} className="space-y-5">
+                        <div>
+                            <label className="block text-sm font-medium text-slate-300 mb-1">Nama Lengkap</label>
+                            <input type="text" required value={name} onChange={(e) => setName(e.target.value)}
+                                className="w-full bg-slate-900/50 border border-slate-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-brand-500"
+                                placeholder="Cth: Ahmad Rian" />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-slate-300 mb-1">Nomor HP (WhatsApp)</label>
+                            <input type="tel" required value={phone} onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))} 
+                                className="w-full bg-slate-900/50 border border-slate-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-brand-500"
+                                placeholder="Cth: 081234567890" />
+                        </div>
+                        <button type="submit" disabled={loading || !name || !phone}
+                            className="w-full bg-gradient-to-r from-brand-500 to-blue-600 hover:from-brand-400 hover:to-blue-500 text-white font-bold py-3.5 px-4 rounded-xl transition-all shadow-lg transform hover:-translate-y-0.5 disabled:opacity-50">
+                            {loading ? 'Memproses...' : 'Masuk & Mulai Kuis'}
+                        </button>
+                    </form>
+                </div>
+            );
+        }
+
+        function AdminLogin({ setView }) {
+            const [email, setEmail] = useState('');
+            const [password, setPassword] = useState('');
+            const [loading, setLoading] = useState(false);
+            const [error, setError] = useState(null);
+
+            const handleLogin = async (e) => {
+                e.preventDefault();
+                setLoading(true);
+                setError(null);
+
+                const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+                
+                if (error) {
+                    setError(`Gagal: ${error.message}. (Pastikan Anda menggunakan akun yang DIBUAT DI DALAM menu "Authentication -> Users", BUKAN email akun utama Supabase Anda)`);
+                }
+                setLoading(false);
+            };
+
+            return (
+                <div className="max-w-md mx-auto mt-12 glass-card p-8 rounded-3xl border-t-4 border-t-purple-500">
+                    <div className="text-center mb-8">
+                        <h2 className="text-2xl font-bold text-white mb-2">Portal Admin</h2>
+                    </div>
+                    
+                    {error && (
+                        <div className="bg-red-500/20 border border-red-500 text-red-200 p-4 rounded-xl mb-6 text-sm font-medium leading-relaxed">
+                            ⚠️ {error}
+                        </div>
+                    )}
+                    
+                    <form onSubmit={handleLogin} className="space-y-5">
+                        <div>
+                            <label className="block text-sm font-medium text-slate-300 mb-1">Email Admin (Dari menu Users)</label>
+                            <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)}
+                                className="w-full bg-slate-900/50 border border-slate-700 rounded-xl px-4 py-3 text-white" />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-slate-300 mb-1">Password</label>
+                            <input type="password" required value={password} onChange={(e) => setPassword(e.target.value)}
+                                className="w-full bg-slate-900/50 border border-slate-700 rounded-xl px-4 py-3 text-white" />
+                        </div>
+                        <button type="submit" disabled={loading}
+                            className="w-full bg-purple-600 hover:bg-purple-500 text-white font-bold py-3 rounded-xl transition">
+                            {loading ? 'Memeriksa...' : 'Login Admin'}
+                        </button>
+                        <button type="button" onClick={() => setView('home')} className="w-full text-slate-400 text-sm hover:text-white mt-4">
+                            Kembali ke Halaman Peserta
+                        </button>
+                    </form>
+                </div>
+            );
+        }
+
+        function ParticipantHome({ setView, setActiveQuiz }) {
+            const [quizzes, setQuizzes] = useState([]);
+            const [loading, setLoading] = useState(true);
+
+            useEffect(() => {
+                const fetchQuizzes = async () => {
+                    const { data, error } = await supabase.from('quizzes').select('*').eq('is_active', true);
+                    if (data) setQuizzes(data);
+                    setLoading(false);
+                };
+                fetchQuizzes();
+            }, []);
+
+            return (
+                <div className="space-y-8 animate-fade-in">
+                    <div className="glass-card rounded-3xl p-8 md:p-12 text-center">
+                        <h2 className="text-4xl md:text-5xl font-bubble text-white mb-4 shadow-sm">Siap Menguji Pengetahuanmu?</h2>
+                        <p className="text-lg text-slate-300">Pilih kuis di bawah ini dan raih hadiahnya!</p>
+                    </div>
+
+                    <div>
+                        <h3 className="text-2xl font-bold mb-6">🔥 Kuis Sedang Aktif</h3>
+                        {loading ? <p className="text-slate-400">Memuat...</p> : quizzes.length === 0 ? (
+                            <div className="glass-card p-10 text-center rounded-2xl text-slate-400">Belum ada kuis yang aktif.</div>
+                        ) : (
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                {quizzes.map(quiz => (
+                                    <div key={quiz.id} className="glass-card rounded-2xl p-6 flex flex-col">
+                                        <h4 className="text-xl font-bold mb-2 text-white">{quiz.title}</h4>
+                                        <p className="text-sm text-slate-400 mb-6 flex-1">{quiz.description}</p>
+                                        <button onClick={() => { setActiveQuiz(quiz); setView('quiz_runner'); }}
+                                            className="w-full bg-white text-slate-900 font-bold py-3 rounded-xl">Mulai Kerjakan 🚀</button>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+        }
+
+        function QuizRunner({ quiz, setView, user }) {
+            return (
+                <div className="glass-card text-center py-20 rounded-3xl">
+                    <h2 className="text-2xl font-bold text-white mb-4">Fitur Kuis Siap Digunakan!</h2>
+                    <p className="text-slate-400 mb-6">Tambahkan tabel 'questions' dan 'attempts' di Supabase untuk melanjutkan.</p>
+                    <button onClick={() => setView('home')} className="bg-slate-700 px-6 py-2 rounded-lg">Kembali</button>
+                </div>
+            );
+        }
+
+        function AdminDashboard() {
+            return (
+                <div className="glass-card rounded-3xl p-8 border-t-4 border-t-brand-500 text-center">
+                    <h2 className="text-3xl font-bubble mb-4">Dashboard Admin</h2>
+                    <p className="text-slate-400 mb-8">Berhasil Login! Kelola kuis Anda melalui Supabase Table Editor.</p>
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
